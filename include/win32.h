@@ -3,6 +3,7 @@
 
 #define STATUS_SUCCESS	    0x00000000
 #define NT_SUCCESS(STATUS)	(((NTSTATUS)(STATUS)) >= STATUS_SUCCESS)
+#define PROCESS_CREATION_MITIGATION_POLICY_BLOCK_NON_MICROSOFT_BINARIES_ALWAYS_ON         (0x00000001 << 44)
 
 #define C_PTR( x )   ( ( LPVOID    ) ( x ) )
 #define U_PTR( x )   ( ( UINT_PTR ) ( x ) )
@@ -17,7 +18,7 @@ VOID   MemZero( _Inout_ PVOID Destination, _In_ SIZE_T Size);
 PVOID  MemCopy( _Inout_ PVOID Destination, _In_ CONST PVOID Source, _In_ SIZE_T Length);
 void   InitUnicodeString(_Out_ PUNICODE_STRING UsStruct, _In_opt_ PCWSTR Buffer);
 SIZE_T StringLengthW(_In_ LPCWSTR String);
-VOID   AnonPipeRead( HANDLE hStdOutRead );
+INT    StringCompareA(_In_ LPCSTR String1, _In_ LPCSTR String2);
 
 DECLSPEC_IMPORT DWORD KERNEL32$GetLastError();
 
