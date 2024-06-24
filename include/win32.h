@@ -3,7 +3,10 @@
 
 #define STATUS_SUCCESS	    0x00000000
 #define NT_SUCCESS(STATUS)	(((NTSTATUS)(STATUS)) >= STATUS_SUCCESS)
-#define PROCESS_CREATION_MITIGATION_POLICY_BLOCK_NON_MICROSOFT_BINARIES_ALWAYS_ON         (0x00000001 << 44)
+
+#ifndef PROCESS_CREATION_MITIGATION_POLICY_BLOCK_NON_MICROSOFT_BINARIES_ALWAYS_ON
+#define PROCESS_CREATION_MITIGATION_POLICY_BLOCK_NON_MICROSOFT_BINARIES_ALWAYS_ON 0x100000000000
+#endif
 
 #define C_PTR( x )   ( ( LPVOID    ) ( x ) )
 #define U_PTR( x )   ( ( UINT_PTR ) ( x ) )
@@ -21,83 +24,20 @@ SIZE_T StringLengthW(_In_ LPCWSTR String);
 INT    StringCompareA(_In_ LPCSTR String1, _In_ LPCSTR String2);
 
 DECLSPEC_IMPORT DWORD KERNEL32$GetLastError();
+DECLSPEC_IMPORT BOOL  KERNEL32$CloseHandle( HANDLE Handle );
 
-DECLSPEC_IMPORT BOOL KERNEL32$CreatePipe(
-    PHANDLE               hReadPipe,
-    PHANDLE               hWritePipe,
-    LPSECURITY_ATTRIBUTES lpPipeAttributes,
-    DWORD                 nSize
-);
-
-DECLSPEC_IMPORT NTSTATUS NTDLL$NtCreateUserProcess(
-    OUT         PHANDLE ProcessHandle,
-    OUT         PHANDLE ThreadHandle,
-    IN          ACCESS_MASK ProcessDesiredAccess,
-    IN          ACCESS_MASK ThreadDesiredAccess,
-    IN OPTIONAL POBJECT_ATTRIBUTES ProcessObjectAttributes,
-    IN OPTIONAL POBJECT_ATTRIBUTES ThreadObjectAttributes,
-    IN ULONG    ProcessFlags,                                    // PROCESS_CREATE_FLAGS_*
-    IN ULONG    ThreadFlags,                                     // THREAD_CREATE_FLAGS_*
-    IN OPTIONAL PRTL_USER_PROCESS_PARAMETERS ProcessParameters,                     
-    IN OUT      PPS_CREATE_INFO CreateInfo,
-    IN          PPS_ATTRIBUTE_LIST AttributeList
-);
-
-DECLSPEC_IMPORT NTSTATUS NTDLL$RtlCreateProcessParametersEx(
-    OUT 	PRTL_USER_PROCESS_PARAMETERS *pProcessParameters,
-    IN 		PUNICODE_STRING ImagePathName,
-    IN OPTIONAL PUNICODE_STRING DllPath,         // set to NULL
-    IN OPTIONAL PUNICODE_STRING CurrentDirectory,
-    IN OPTIONAL PUNICODE_STRING CommandLine,
-    IN OPTIONAL PVOID Environment,              // set to NULL
-    IN OPTIONAL PUNICODE_STRING WindowTitle,    // set to NULL
-    IN OPTIONAL PUNICODE_STRING DesktopInfo,    // set to NULL
-    IN OPTIONAL PUNICODE_STRING ShellInfo,      // set to NULL
-    IN OPTIONAL PUNICODE_STRING RuntimeData,    // set to NULL
-    IN ULONG Flags 
-);
-
-DECLSPEC_IMPORT LPVOID KERNEL32$HeapAlloc(
-    _In_ HANDLE hHeap,
-    _In_ DWORD  dwFlags,
-    _In_ SIZE_T dwBytes
-);
-
+DECLSPEC_IMPORT LPVOID KERNEL32$HeapAlloc( _In_ HANDLE hHeap, _In_ DWORD dwFlags, _In_ SIZE_T dwBytes );
+DECLSPEC_IMPORT BOOL   KERNEL32$HeapFree( HANDLE hHeap, DWORD dwFlags, LPVOID lpMem );
 DECLSPEC_IMPORT HANDLE KERNEL32$GetProcessHeap();
+DECLSPEC_IMPORT HLOCAL KERNEL32$LocalAlloc( UINT uFlags, SIZE_T uBytes );
+DECLSPEC_IMPORT HLOCAL KERNEL32$LocalFree( HLOCAL hMem );
+DECLSPEC_IMPORT HLOCAL KERNEL32$LocalReAlloc( HLOCAL hMem, SIZE_T uBytes, UINT uFlags );
 
-DECLSPEC_IMPORT NTSTATUS NTDLL$NtClose(
-    HANDLE Handle
-);
+DECLSPEC_IMPORT BOOL KERNEL32$CreatePipe( PHANDLE hReadPipe, PHANDLE hWritePipe, LPSECURITY_ATTRIBUTES lpPipeAttributes, DWORD nSize );
+DECLSPEC_IMPORT BOOL KERNEL32$ReadFile( HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped );
 
-DECLSPEC_IMPORT HLOCAL KERNEL32$LocalAlloc(
-    UINT   uFlags,
-    SIZE_T uBytes
-);
-
-DECLSPEC_IMPORT HLOCAL KERNEL32$LocalFree(
-    HLOCAL hMem
-);
-
-DECLSPEC_IMPORT HLOCAL KERNEL32$LocalReAlloc(
-    HLOCAL hMem,
-    SIZE_T                 uBytes,
-    UINT                   uFlags
-);
-
-DECLSPEC_IMPORT BOOL KERNEL32$ReadFile(
-    HANDLE       hFile,
-    LPVOID       lpBuffer,
-    DWORD        nNumberOfBytesToRead,
-    LPDWORD      lpNumberOfBytesRead,
-    LPOVERLAPPED lpOverlapped
-);
-
-DECLSPEC_IMPORT NTSTATUS NTDLL$NtOpenProcess(
-    PHANDLE            ProcessHandle,
-    ACCESS_MASK        DesiredAccess,
-    POBJECT_ATTRIBUTES ObjectAttributes,
-    PCLIENT_ID         ClientId
-);
-
-// NtClose
-// RtlAllocateHeap
+DECLSPEC_IMPORT HANDLE KERNEL32$OpenProcess( DWORD dwDesiredAccess, BOOL  bInheritHandle, DWORD dwProcessId );
+DECLSPEC_IMPORT BOOL   KERNEL32$CreateProcessA( LPCSTR lpApplicationName, LPSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes, LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles, DWORD dwCreationFlags, LPVOID lpEnvironment, LPCSTR lpCurrentDirectory, LPSTARTUPINFOA lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation );
+DECLSPEC_IMPORT BOOL   KERNEL32$InitializeProcThreadAttributeList( LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList, DWORD dwAttributeCount, DWORD dwFlags, PSIZE_T lpSize );
+DECLSPEC_IMPORT BOOL   KERNEL32$UpdateProcThreadAttribute( LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList, DWORD dwFlags, DWORD_PTR Attribute, PVOID lpValue, SIZE_T cbSize, PVOID lpPreviousValue, PSIZE_T lpReturnSize );
+DECLSPEC_IMPORT VOID   KERNEL32$DeleteProcThreadAttributeList( LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList );

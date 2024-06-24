@@ -19,6 +19,11 @@ class Packer:
         self.buffer += pack(fmt, len(b), b)
         self.size += calcsize(fmt)
 
+    def addbool(self, b):
+        fmt = '<I'
+        self.buffer += pack(fmt, 1 if b else 0)
+        self.size   += 4
+
     def addstr(self, s):
         if s is None:
             s = ''
@@ -71,7 +76,19 @@ def argue( demon_id, *args ):
     #task = demon.
 
 def blockdlls( demon_id, *args ):
-    task_id:str = None
+    task_id : str    = None
+    demon   : Demon  = None
+    packer  : Packer = Packer()
+    
+    handle   : str    = "blockdlls"
+    blockdlls: bool   = None
+
+    packer.addstr( handle )
+    packer.addbool( blockdlls )
+
+    task_id = demon.ConsoleWrite(demon.CONSOLE_TASK, f"Tasked the demon to set blockdlls to {blockdlls}!")
+
+    return task_id
 
 def run( demon_id, *args ):
     task_id : str    = None
@@ -79,10 +96,7 @@ def run( demon_id, *args ):
     packer  : Packer = Packer()
     
     handle  : str    = "run"
-    procname: str    = None
     cmdline : str    = None
-    curdir  : str    = None
-    ppid    : int    = None
 
     demon = Demon( demon_id )
 
@@ -90,24 +104,12 @@ def run( demon_id, *args ):
         demon.ConsoleWrite(demon.CONSOLE_ERROR, "Not enough arguments")
         return False
 
-    procname = args[0]
-    cmdline  = args[1]
-    last_backslash_index = procname.rfind('\\')
-
-    if not exists(cmdline):
-        demon.ConsoleWrite(demon.CONSOLE_ERROR, f"Path '{cmdline}' does not exist")
-
-    if last_backslash_index != -1:
-        curdir = procname[:last_backslash_index]
-    else:
-        curdir = ""
+    cmdline  = args[0]
 
     packer.addstr( handle )
-    packer.addstr( "\\??\\" + procname )
-    packer.addstr( procname + " " + cmdline )
-    packer.addstr( curdir )
+    packer.addstr( cmdline )
 
-    task_id = demon.ConsoleWrite(demon.CONSOLE_TASK, f"Tasked the demon to execute spawn process - Process Path = {procname} - Command Line = {cmdline} - Process Directory = {curdir}")
+    task_id = demon.ConsoleWrite(demon.CONSOLE_TASK, f"Tasked the demon to execute spawn process!")
 
     demon.InlineExecute( task_id, "go", "./spawn.x64.o", packer.getbuffer(), False )
 
