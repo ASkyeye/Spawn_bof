@@ -1,5 +1,5 @@
 #include <windows.h>
-#include <structs.h>
+#include <native.h>
 
 #define STATUS_SUCCESS	    0x00000000
 #define NT_SUCCESS(STATUS)	(((NTSTATUS)(STATUS)) >= STATUS_SUCCESS)

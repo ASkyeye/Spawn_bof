@@ -79,14 +79,16 @@ def blockdlls( demon_id, *args ):
     task_id : str    = None
     demon   : Demon  = None
     packer  : Packer = Packer()
-    
+
+    demon = Demon( demon_id )
+
     handle   : str    = "blockdlls"
     blockdlls: bool   = None
 
     packer.addstr( handle )
     packer.addbool( blockdlls )
 
-    task_id = demon.ConsoleWrite(demon.CONSOLE_TASK, f"Tasked the demon to set blockdlls to {blockdlls}!")
+    task_id = demon.ConsoleWrite(demon.CONSOLE_TASK, f"Tasked the demon to set blockdlls!")
 
     return task_id
 
